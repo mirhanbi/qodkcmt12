@@ -1,0 +1,506 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>산성비 단어 번역 게임</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Gamja+Flower&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Gamja Flower', cursive;
+            overscroll-behavior: none; 
+        }
+        .game-container {
+            width: 100%;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 10px;
+        }
+        canvas {
+            background-color: #E0F7FA; 
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            display: block; 
+            width: 100%;
+        }
+        .button {
+            background-color: #FFD180; 
+            color: #5D4037; 
+            padding: 10px 20px;
+            border: none;
+            border-radius: 20px; 
+            font-size: 1.1rem;
+            cursor: pointer;
+            transition: background-color 0.3s, transform 0.1s;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin: 5px;
+        }
+        .button:hover {
+            background-color: #FFB74D; 
+        }
+        .button:active {
+            transform: scale(0.95);
+        }
+        input[type="text"] {
+            border: 2px solid #81D4FA; 
+            border-radius: 20px;
+            padding: 10px 15px;
+            width: calc(100% - 30px);
+            margin: 10px auto;
+            display: block;
+            box-sizing: border-box;
+            font-size: 1.1rem;
+            text-align: center;
+        }
+        input[type="text"]:focus {
+            outline: none;
+            border-color: #FFB74D;
+        }
+        .hud-element {
+            background-color: rgba(255, 255, 255, 0.8);
+            padding: 8px 12px;
+            border-radius: 15px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+        .custom-modal {
+            position: fixed;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.5);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.3s ease, visibility 0.3s ease;
+        }
+        .custom-modal.show {
+            opacity: 1;
+            visibility: visible;
+        }
+        .custom-modal-content {
+            background-color: #FFF8E1; 
+            padding: 30px;
+            border-radius: 15px;
+            text-align: center;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+            color: #5D4037; 
+        }
+        .custom-modal-content h2 {
+            font-size: 1.8rem;
+            margin-bottom: 15px;
+            color: #EF6C00; 
+        }
+        .custom-modal-content p {
+            font-size: 1.2rem;
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+<body class="bg-amber-50 min-h-screen flex flex-col items-center justify-center p-4">
+
+    <div id="gameContainer" class="game-container w-full max-w-2xl text-center">
+        <div id="startScreen" class="p-5 bg-sky-100 rounded-xl shadow-lg">
+            <h1 class="text-4xl font-bold text-sky-700 mb-6">산성비 단어 번역 게임</h1>
+            <img src="https://placehold.co/150x100/87CEEB/FFFFFF?text=구름+번역&font=gamja-flower" alt="구름 번역 캐릭터" class="mx-auto mb-6 rounded-lg" onerror="this.src='https://placehold.co/150x100/87CEEB/333333?text=이미지+로드+실패&font=gamja-flower'">
+            <p class="text-xl text-sky-600 mb-8">내려오는 단어를 보고 알맞은 번역을 입력하세요!</p>
+            <div id="difficultySelection">
+                <h2 class="text-2xl text-sky-700 mb-4">난이도를 선택하세요:</h2>
+                <button id="easyBtn" class="button">쉬움 🐌</button>
+                <button id="mediumBtn" class="button">보통 🐢</button>
+                <button id="hardBtn" class="button">어려움 🐇</button>
+            </div>
+        </div>
+
+        <div id="gameScreen" class="hidden">
+            <canvas id="gameCanvas"></canvas>
+            <input type="text" id="wordInput" placeholder="번역 단어를 입력하고 Enter!" class="mt-4 text-lg">
+            <div id="hud" class="flex justify-around items-center mt-3 text-lg text-sky-700">
+                <p class="hud-element">점수: <span id="scoreDisplay">0</span></p>
+                <p class="hud-element">목숨: <span id="livesDisplay">❤❤❤</span></p>
+                <button id="pauseBtn" class="button !bg-teal-400 !text-white">잠시 멈춤 ⏸️</button>
+            </div>
+        </div>
+
+        <div id="gameOverScreen" class="hidden p-8 bg-red-100 rounded-xl shadow-lg">
+            <h2 class="text-4xl font-bold text-red-600 mb-6">게임 종료! 😿</h2>
+            <img src="https://placehold.co/120x100/FFCDD2/FFFFFF?text=슬픈+구름&font=gamja-flower" alt="슬픈 구름 캐릭터" class="mx-auto mb-6 rounded-lg" onerror="this.src='https://placehold.co/120x100/FFCDD2/333333?text=이미지+로드+실패&font=gamja-flower'">
+            <p class="text-2xl text-red-500 mb-4">최종 점수: <span id="finalScoreDisplay">0</span></p>
+            <button id="restartBtn" class="button !bg-green-500 !text-white">다시 시작! ✨</button>
+        </div>
+    </div>
+
+    <div id="customModal" class="custom-modal">
+        <div class="custom-modal-content">
+            <h2 id="modalTitle">알림</h2>
+            <p id="modalMessage">메시지 내용</p>
+            <button id="modalCloseBtn" class="button">확인</button>
+        </div>
+    </div>
+
+    <script>
+        // DOM Elements
+        const startScreen = document.getElementById('startScreen');
+        const gameScreen = document.getElementById('gameScreen');
+        const gameOverScreen = document.getElementById('gameOverScreen');
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const wordInput = document.getElementById('wordInput');
+        const scoreDisplay = document.getElementById('scoreDisplay');
+        const livesDisplay = document.getElementById('livesDisplay');
+        const finalScoreDisplay = document.getElementById('finalScoreDisplay');
+        const pauseBtn = document.getElementById('pauseBtn');
+        const easyBtn = document.getElementById('easyBtn');
+        const mediumBtn = document.getElementById('mediumBtn');
+        const hardBtn = document.getElementById('hardBtn');
+        const restartBtn = document.getElementById('restartBtn');
+
+        // Custom Modal Elements
+        const customModal = document.getElementById('customModal');
+        const modalTitle = document.getElementById('modalTitle');
+        const modalMessage = document.getElementById('modalMessage');
+        const modalCloseBtn = document.getElementById('modalCloseBtn');
+
+        // Game State
+        let score = 0;
+        let lives = 3;
+        let gameInterval;
+        let fallingWords = [];
+        let isPaused = false;
+        let difficulty = 'medium'; 
+        let animationFrameId;
+
+        // Noun-focused word list with English-Korean pairs
+        const wordList = {
+            easy: [
+                { en: 'cat', ko: '고양이' }, { en: 'dog', ko: '강아지' }, { en: 'sun', ko: '해' }, { en: 'car', ko: '자동차' },
+                { en: 'bus', ko: '버스' }, { en: 'egg', ko: '달걀' }, { en: 'sky', ko: '하늘' }, { en: 'tree', ko: '나무' },
+                { en: 'book', ko: '책' }, { en: 'ball', ko: '공' }, { en: 'bed', ko: '침대' }, { en: 'box', ko: '상자' },
+                { en: 'cup', ko: '컵' }, { en: 'key', ko: '열쇠' }, { en: 'map', ko: '지도' }, { en: 'pen', ko: '펜' },
+                { en: 'ant', ko: '개미' }, { en: 'arm', ko: '팔' }, { en: 'bag', ko: '가방' }, { en: 'cap', ko: '모자' }
+            ],
+            medium: [
+                { en: 'apple', ko: '사과' }, { en: 'water', ko: '물' }, { en: 'friend', ko: '친구' }, { en: 'earth', ko: '지구' },
+                { en: 'light', ko: '빛' }, { en: 'flower', ko: '꽃' }, { en: 'house', ko: '집' }, { en: 'money', ko: '돈' },
+                { en: 'music', ko: '음악' }, { en: 'paper', ko: '종이' }, { en: 'river', ko: '강' }, { en: 'school', ko: '학교' },
+                { en: 'ship', ko: '배' }, { en: 'star', ko: '별' }, { en: 'table', ko: '식탁' }, { en: 'watch', ko: '시계' }, // 'table' can be 탁자 or 식탁, using 식탁 for common context
+                { en: 'bread', ko: '빵' }, { en: 'chair', ko: '의자' }, { en: 'cloud', ko: '구름' }, { en: 'dream', ko: '꿈' }
+            ],
+            hard: [
+                { en: 'computer', ko: '컴퓨터' }, { en: 'mountain', ko: '산' }, { en: 'adventure', ko: '모험' },
+                { en: 'journey', ko: '여정' }, { en: 'knowledge', ko: '지식' }, { en: 'language', ko: '언어' }, // 'journey' can be 여행 or 여정
+                { en: 'bicycle', ko: '자전거' }, { en: 'building', ko: '건물' }, { en: 'capital', ko: '수도' },
+                { en: 'diamond', ko: '다이아몬드' }, { en: 'elephant', ko: '코끼리' }, { en: 'forest', ko: '숲' },
+                { en: 'government', ko: '정부' }, { en: 'hospital', ko: '병원' }, { en: 'instrument', ko: '악기' },
+                { en: 'library', ko: '도서관' }, { en: 'microscope', ko: '현미경' }, { en: 'telescope', ko: '망원경' },
+                { en: 'university', ko: '대학교' }, { en: 'volcano', ko: '화산' }, { en: 'dictionary', ko: '사전' }
+            ]
+        };
+
+        const difficultySettings = {
+            easy: { speed: 0.5, interval: 3500 }, 
+            medium: { speed: 1, interval: 2500 },
+            hard: { speed: 1.5, interval: 1500 }
+        };
+
+        let currentSettings;
+
+        // Sound Effects (Tone.js)
+        let correctSound, missSound, impactSound, gameStartSound, gameOverSound;
+
+        function initializeSounds() {
+            if (typeof Tone !== 'undefined') {
+                correctSound = new Tone.Synth({ oscillator: { type: 'sine' }, envelope: { attack: 0.01, decay: 0.1, sustain: 0.05, release: 0.2 } }).toDestination();
+                correctSound.volume.value = -10;
+                missSound = new Tone.Synth({ oscillator: { type: 'square' }, envelope: { attack: 0.01, decay: 0.2, sustain: 0, release: 0.1 } }).toDestination();
+                missSound.volume.value = -15;
+                impactSound = new Tone.MembraneSynth({ pitchDecay: 0.05, octaves: 5, oscillator: { type: "sine" }, envelope: { attack: 0.001, decay: 0.4, sustain: 0.01, release: 1.4, attackCurve: "exponential" } }).toDestination();
+                impactSound.volume.value = -5;
+                gameStartSound = new Tone.Synth({ oscillator: { type: 'triangle' }, envelope: { attack: 0.05, decay: 0.2, sustain: 0.1, release: 0.3 } }).toDestination();
+                gameStartSound.volume.value = -8;
+                gameOverSound = new Tone.Synth({ oscillator: { type: 'sawtooth' }, envelope: { attack: 0.1, decay: 0.5, sustain: 0, release: 0.5 } }).toDestination();
+                gameOverSound.volume.value = -8;
+            } else {
+                console.warn("Tone.js not loaded. Sound effects will be disabled.");
+                const dummySound = { play: () => {}, triggerAttackRelease: () => {} };
+                correctSound = missSound = impactSound = gameStartSound = gameOverSound = dummySound;
+            }
+        }
+        
+        function showModal(title, message) {
+            modalTitle.textContent = title;
+            modalMessage.textContent = message;
+            customModal.classList.add('show');
+        }
+
+        modalCloseBtn.addEventListener('click', () => {
+            customModal.classList.remove('show');
+        });
+
+        function setupCanvas() {
+            const containerWidth = gameContainer.clientWidth;
+            canvas.width = containerWidth * 0.95; 
+            canvas.height = window.innerHeight * 0.6; 
+            if (canvas.height > 500) canvas.height = 500; 
+            if (canvas.height < 300) canvas.height = 300; 
+            wordInput.style.maxWidth = `${canvas.width}px`;
+        }
+
+        window.addEventListener('resize', () => {
+            if (gameScreen.style.display !== 'none') {
+                setupCanvas();
+            }
+        });
+
+        function drawWord(word) {
+            ctx.font = "bold 24px 'Gamja Flower'";
+            // word.type will be 'en' if English word is falling, 'ko' if Korean word is falling.
+            const bubbleColor = word.type === 'ko' ? 'rgba(255, 230, 230, 0.9)' : 'rgba(230, 255, 250, 0.9)';
+            const textColor = word.type === 'ko' ? '#C92A2A' : '#0B7285';
+            
+            const textWidth = ctx.measureText(word.text).width;
+            const padding = 10;
+            const bubbleWidth = textWidth + padding * 2;
+            const bubbleHeight = 30 + padding; 
+
+            ctx.fillStyle = bubbleColor;
+            ctx.beginPath();
+            ctx.roundRect(word.x - padding, word.y - bubbleHeight + padding/2 , bubbleWidth, bubbleHeight, 15);
+            ctx.fill();
+            
+            ctx.fillStyle = textColor;
+            ctx.fillText(word.text, word.x, word.y);
+
+            if (word.isHit) { 
+                ctx.fillStyle = "rgba(255, 255, 0, 0.5)"; 
+                ctx.beginPath();
+                ctx.arc(word.x + textWidth / 2, word.y - 15, 30, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        }
+
+        function drawFloor() {
+            const floorHeight = 30;
+            const gradient = ctx.createLinearGradient(0, canvas.height - floorHeight, 0, canvas.height);
+            gradient.addColorStop(0, "#A5D6A7"); 
+            gradient.addColorStop(1, "#66BB6A"); 
+            ctx.fillStyle = gradient;
+            ctx.fillRect(0, canvas.height - floorHeight, canvas.width, floorHeight);
+
+            ctx.fillStyle = "#388E3C"; 
+            for (let i = 0; i < canvas.width; i += 10) {
+                const grassHeight = 5 + Math.random() * 10;
+                ctx.beginPath();
+                ctx.moveTo(i, canvas.height - floorHeight);
+                ctx.lineTo(i + 2, canvas.height - floorHeight - grassHeight);
+                ctx.lineTo(i + 4, canvas.height - floorHeight);
+                ctx.fill();
+            }
+        }
+        
+        function drawSplash(x, y) {
+            const splashParticles = [];
+            for (let i = 0; i < 10; i++) { 
+                splashParticles.push({
+                    x: x, y: y, size: Math.random() * 5 + 2, 
+                    speedX: (Math.random() - 0.5) * 4, 
+                    speedY: -Math.random() * 5 - 2, 
+                    color: `rgba(78, 205, 196, ${Math.random() * 0.5 + 0.5})`, 
+                    life: 30 
+                });
+            }
+
+            function animateSplash() {
+                let activeParticles = splashParticles.length;
+                splashParticles.forEach(p => {
+                    if (p.life > 0) {
+                        p.x += p.speedX; p.y += p.speedY; p.speedY += 0.2; p.life--;
+                        ctx.fillStyle = p.color; ctx.beginPath(); ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2); ctx.fill();
+                    } else { activeParticles--; }
+                });
+                if (activeParticles > 0) { requestAnimationFrame(animateSplash); }
+            }
+            animateSplash(); 
+        }
+
+        function spawnWord() {
+            if (isPaused) return;
+
+            const currentWordList = wordList[difficulty] || wordList.medium;
+            const wordPair = currentWordList[Math.floor(Math.random() * currentWordList.length)];
+
+            let displayText, answerText, displayType;
+            if (Math.random() < 0.5) { // 50% chance to show English word
+                displayText = wordPair.en;
+                answerText = wordPair.ko;
+                displayType = 'en';
+            } else { // 50% chance to show Korean word
+                displayText = wordPair.ko;
+                answerText = wordPair.en;
+                displayType = 'ko';
+            }
+            
+            const textWidth = ctx.measureText(displayText).width; 
+            const xPosition = Math.random() * (canvas.width - textWidth - 20) + 10; 
+
+            fallingWords.push({
+                text: displayText,    // Word to display
+                answer: answerText,   // Correct translation to type
+                x: xPosition,
+                y: 0, 
+                speed: currentSettings.speed + Math.random() * 0.5, 
+                type: displayType,    // 'en' or 'ko' for styling the falling word
+                isHit: false 
+            });
+        }
+
+        function updateGame() {
+            if (isPaused) return;
+
+            fallingWords.forEach((word, index) => {
+                word.y += word.speed;
+                if (word.y > canvas.height - 30) { 
+                    fallingWords.splice(index, 1);
+                    lives--;
+                    updateLivesDisplay();
+                    if (impactSound && impactSound.triggerAttackRelease) {
+                         impactSound.triggerAttackRelease("C2", "8n", Tone.now());
+                    }
+                    drawSplash(word.x + ctx.measureText(word.text).width / 2, canvas.height - 30);
+                    if (lives <= 0) { gameOver(); }
+                }
+            });
+        }
+
+        function drawGame() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height); 
+            drawFloor(); 
+            fallingWords.forEach(drawWord); 
+        }
+
+        function gameLoop() {
+            if (!isPaused) { updateGame(); }
+            drawGame();
+            animationFrameId = requestAnimationFrame(gameLoop);
+        }
+
+        function startGame(selectedDifficulty) {
+            difficulty = selectedDifficulty;
+            currentSettings = difficultySettings[difficulty];
+            
+            score = 0; lives = 3; fallingWords = []; isPaused = false;
+            updateScoreDisplay(); updateLivesDisplay();
+            
+            startScreen.classList.add('hidden');
+            gameOverScreen.classList.add('hidden');
+            gameScreen.classList.remove('hidden');
+            
+            setupCanvas(); 
+            ctx.font = "bold 24px 'Gamja Flower'"; 
+
+            wordInput.value = ''; wordInput.focus();
+            pauseBtn.textContent = '잠시 멈춤 ⏸️';
+
+            if (gameInterval) clearInterval(gameInterval);
+            gameInterval = setInterval(spawnWord, currentSettings.interval);
+            
+            if (animationFrameId) cancelAnimationFrame(animationFrameId);
+            gameLoop();
+
+            if (gameStartSound && gameStartSound.triggerAttackRelease) {
+                gameStartSound.triggerAttackRelease("C4", "4n", Tone.now());
+            }
+        }
+
+        function gameOver() {
+            if (gameOverSound && gameOverSound.triggerAttackRelease) {
+                gameOverSound.triggerAttackRelease("C3", "2n", Tone.now());
+            }
+            clearInterval(gameInterval);
+            cancelAnimationFrame(animationFrameId);
+            isPaused = true; 
+
+            finalScoreDisplay.textContent = score;
+            gameScreen.classList.add('hidden');
+            gameOverScreen.classList.remove('hidden');
+        }
+
+        function updateScoreDisplay() { scoreDisplay.textContent = score; }
+        function updateLivesDisplay() { livesDisplay.textContent = '❤'.repeat(Math.max(0,lives)) + '♡'.repeat(Math.max(0,3 - lives)); }
+
+        wordInput.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter' && !isPaused) {
+                const typedWord = wordInput.value.trim();
+                if (typedWord === '') return;
+
+                let foundWord = false;
+                for (let i = fallingWords.length - 1; i >= 0; i--) { 
+                    if (fallingWords[i].answer === typedWord) { // Check against the 'answer' field
+                        fallingWords[i].isHit = true; 
+                        drawWord(fallingWords[i]); 
+                        
+                        const matchedWordText = fallingWords[i].text; // Keep track of text for removal
+                        setTimeout(() => { 
+                           const idx = fallingWords.findIndex(w => w.text === matchedWordText && w.isHit); // Ensure correct word is removed
+                           if (idx !== -1) fallingWords.splice(idx, 1);
+                        }, 100);
+
+                        score += 10;
+                        updateScoreDisplay();
+                        if (correctSound && correctSound.triggerAttackRelease) {
+                            correctSound.triggerAttackRelease("C5", "16n", Tone.now());
+                        }
+                        foundWord = true;
+                        break; 
+                    }
+                }
+
+                if (!foundWord && missSound && missSound.triggerAttackRelease) {
+                     missSound.triggerAttackRelease("A2", "16n", Tone.now());
+                }
+                wordInput.value = ''; 
+            }
+        });
+
+        pauseBtn.addEventListener('click', () => {
+            if (!Tone.context.state || Tone.context.state !== 'running') { Tone.start(); }
+            isPaused = !isPaused;
+            pauseBtn.textContent = isPaused ? '계속하기 ▶️' : '잠시 멈춤 ⏸️';
+            if (!isPaused) { wordInput.focus(); }
+        });
+
+        easyBtn.addEventListener('click', () => {
+            if (!Tone.context.state || Tone.context.state !== 'running') { Tone.start().then(() => startGame('easy')); } 
+            else { startGame('easy'); }
+        });
+        mediumBtn.addEventListener('click', () => {
+            if (!Tone.context.state || Tone.context.state !== 'running') { Tone.start().then(() => startGame('medium')); } 
+            else { startGame('medium'); }
+        });
+        hardBtn.addEventListener('click', () => {
+             if (!Tone.context.state || Tone.context.state !== 'running') { Tone.start().then(() => startGame('hard')); } 
+             else { startGame('hard'); }
+        });
+
+        restartBtn.addEventListener('click', () => {
+            gameOverScreen.classList.add('hidden');
+            startScreen.classList.remove('hidden');
+        });
+        
+        document.addEventListener('DOMContentLoaded', () => {
+            initializeSounds();
+            document.body.addEventListener('click', () => {
+                if (Tone.context.state !== 'running') {
+                    Tone.start().catch(e => console.warn("Tone.start() failed:", e));
+                }
+            }, { once: true }); 
+        });
+
+    </script>
+</body>
+</html>
